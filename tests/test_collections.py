@@ -102,7 +102,7 @@ class TestObjectRedis(object):
         assert d[3] == 'three'
         assert len(d) == 2
 
-        assert {True, 3} == set(d.keys())
+        assert set([True, 3]) == set(d.keys())
         assert {True: 42.1, 3: 'three'} == d.copy()
 
     def test_namespace(self, sr):
@@ -155,7 +155,7 @@ class TestRedisDict(object):
         d = p.RedisDict('foo', redis=sr)
         d['a'] = 'A'
         d['c'] = 'C'
-        assert {'a', 'c'} == set(d.keys())
+        assert set(['a', 'c']) == set(d.keys())
 
     def test_copy(self, sr):
         d = p.RedisDict('foo', redis=sr)
@@ -231,7 +231,7 @@ class TestRedisSet(object):
         assert ('grunge' in s)
         s.add(True)
         s.add(('graph'))
-        assert {'grunge', True, ('graph')} == set(s)
+        assert set(['grunge', True, ('graph')]) == set(s)
         assert 3 == len(s)
         assert 3 == sum(1 for _ in s)
 
@@ -250,12 +250,12 @@ class TestRedisSet(object):
 
         s.add(None)
         assert 2 == len(s)
-        assert {0, None} == s.copy()
-        assert {0, None} == set(s)
+        assert set([0, None]) == s.copy()
+        assert set([0, None]) == set(s)
 
     def test_update(self, sr):
         s = p.RedisSet('bar', redis=sr)
-        ref = {'oats', 'peas', 'beans'}
+        ref = set(['oats', 'peas', 'beans'])
         s.update(tuple(ref))
         assert ref == set(s)
         assert ref == s.copy()
