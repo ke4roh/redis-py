@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 from redis import StrictRedis
 import pickle
-import collections
-from collections import OrderedDict
-from ._compat import iteritems
+from collections import MutableMapping, MutableSequence, MutableSet
+from ._compat import iteritems, OrderedDict
 
 __author__ = 'jscarbor'
 
 
-class ObjectRedis(collections.MutableMapping):
+class ObjectRedis(MutableMapping):
     """
     View on a Redis database, supporting object keys and arbitrary object values.  This implementation
     uses the Redis key namespace as the namespace for its keys.
@@ -152,7 +151,7 @@ class ObjectRedis(collections.MutableMapping):
         return d
 
 
-class RedisList(collections.MutableSequence):
+class RedisList(MutableSequence):
     """A list backed by Redis, using the Redis linked list construct, and stored a single Redis value.
     Operations on the ends of the list, and len() are O(1).
     Operations on elements by index are O(N)."""
@@ -274,7 +273,7 @@ class RedisList(collections.MutableSequence):
         return '[%s]' % ', '.join(map(repr, self))
 
 
-class RedisSet(collections.MutableSet):
+class RedisSet(MutableSet):
     """
     A set, backed by the Redis set construct.
     """
@@ -332,7 +331,7 @@ class RedisSet(collections.MutableSet):
         return '{%s}' % ', '.join(map(repr, self))
 
 
-class RedisDict(collections.MutableMapping):
+class RedisDict(MutableMapping):
     """
     A dictionary, backed by Redis
     """
@@ -384,7 +383,7 @@ class RedisDict(collections.MutableMapping):
         return '{%s}' % ', '.join(([": ".join(map(repr, (k, v))) for k, v in iteritems(self)]))
 
 
-class RedisSortedSet(collections.MutableMapping):
+class RedisSortedSet(MutableMapping):
     """
     A Redis sorted set wrapped as a dict.  Entries are stored in the dictionary keys, scores are their values.
     Items are sorted in order by their values.  Values must be floating point numbers.
