@@ -10,9 +10,9 @@ __author__ = 'ke4roh'
 
 class ObjectRedis(MutableMapping):
     """
-    View on a Redis database, supporting object keys and arbitrary object
-    values.  This implementation uses the Redis key namespace as the namespace
-    for its keys.
+    A Dictionary view of a Redis database, supporting object keys and arbitrary
+    object values.  This implementation uses the Redis key namespace as the
+    namespace for its keys.
 
     If collections are stored in Redis with the supported collection types, the
     basic python-wrapped collections will be returned, using the same
@@ -67,12 +67,6 @@ class ObjectRedis(MutableMapping):
             return RedisSortedSet(rkey, self.redis, self.serializer)
         else:
             raise NotImplementedError(str(rtype))
-
-    def get(self, key, default=None):
-        try:
-            self.__getitem__(key)
-        except KeyError:
-            return default
 
     def __setitem__(self, key, value):
         """
@@ -183,16 +177,23 @@ class ObjectRedis(MutableMapping):
         else:
             return self.key_serializer.dumps(key)
 
-    def copy(self):
-        d = {}
-        for k in self.keys():
-            d[k] = self[k]
-        return d
+
+def _str(obj, box='[%s]', iter=None, one=repr):
+    l = []
+    if iter is None:
+        iter = obj.__iter__
+    for i in iter():
+        if len(l) >= 10:
+            l.append('…')
+            break
+        l.append(one(i))
+    return ('<%s(name=%s,' + box + ')>') % \
+           (obj.__class__.__name__, obj.name, ', '.join(l))
 
 
 class RedisList(MutableSequence):
-    """A list backed by Redis, using the Redis linked list construct, and stored
-    a single Redis value.
+    """A list backed by Redis, using the Redis linked list construct, and
+    stored a single Redis value.
     Operations on the ends of the list, and len() are O(1).
     Operations on elements by index are O(N)."""
 
@@ -219,7 +220,7 @@ class RedisList(MutableSequence):
         self.redis.lset(self.name, index, self.serializer.dumps(value))
 
     def __delitem__(self, index):
-        self.redis.pipeline().lset(self.name, index, '-=-DELETING-=-').\
+        self.redis.pipeline().lset(self.name, index, '-=-DELETING-=-'). \
             lrem(self.name, 1, '-=-DELETING-=-').execute()
 
     def __len__(self):
@@ -281,8 +282,8 @@ class RedisList(MutableSequence):
         return self.serializer.loads(rval)
 
     def __iter__(self):
-        return [self.serializer.loads(x) for x in
-                self.redis.lrange(self.name, 0, self.__len__())].__iter__()
+        for x in self.redis.lrange(self.name, 0, self.__len__()):
+            yield self.serializer.loads(x)
 
     def __contains__(self, item):
         try:
@@ -291,6 +292,10 @@ class RedisList(MutableSequence):
             return False
 
     def __reversed__(self):
+        """
+        Load the list in memory and iterate over it backwards.  O(N)
+        Iterating backwards without loading the list would take O(N*N).
+        """
         return list(self).__reversed__()
 
     def __index(self, pipe, value, start, stop, rbox):
@@ -314,11 +319,8 @@ class RedisList(MutableSequence):
         else:
             raise ValueError()
 
-    def copy(self):
-        return list(self)
-
     def __str__(self):
-        return '[%s]' % ', '.join(map(repr, self))
+        return _str(self)
 
 
 class RedisSet(MutableSet):
@@ -350,38 +352,32 @@ class RedisSet(MutableSet):
         return self.redis.sismember(self.name, self.serializer.dumps(item))
 
     def update(self, *others):
-        return self.add(*[item for sublist in others for item in sublist])
+        # The call to __hash__ for each item insures it's hashable (i.e.
+        # unmodifiable), and thus suitable for a set.
+        # These sets are persisted and unmodifiable once they're saved, but
+        # I haven't thought of a good reason to change the basic contract
+        # for set - because this set will also be transformed into an
+        # in-memory set in some cases.
+        new_data = [(item.__hash__() or True) and self.serializer.dumps(item)
+                    for sublist in others for item in sublist]
+        if len(new_data):
+            self.redis.sadd(self.name, *new_data)
 
-    def add(self, *item):
+    def add(self, item):
         """
         :param item: One or more items to be added
         :return: the number of things added
         """
-        if len(item):
-            # The call to __hash__ for each item insures it's hashable (i.e.
-            # unmodifiable), and thus suitable for a set.
-            # These sets are persisted and unmodifiable once they're saved, but
-            # I haven't thought of a good reason to change the basic contract
-            # for set - because this set will also be transformed into an
-            # in-memory set in some cases.
-            return self.redis.sadd(self.name,
-                                   *[(item.__hash__() or True) and
-                                     self.serializer.dumps(item)
-                                     for item in item])
-        else:
-            return 0
+        self.update((item,))
 
     def discard(self, item):
-        return self.redis.srem(self.name, self.serializer.dumps(item))
-
-    def copy(self):
-        return set(self.__iter__())
+        self.redis.srem(self.name, self.serializer.dumps(item))
 
     def clear(self):
         self.redis.delete(self.name)
 
     def __str__(self):
-        return '{%s}' % ', '.join(map(repr, self))
+        return _str(self, '{%s}')
 
 
 class RedisDict(MutableMapping):
@@ -430,26 +426,24 @@ class RedisDict(MutableMapping):
     def clear(self):
         self.redis.delete(self.name)
 
-    def copy(self):
-        d = {}
-        d.update(self)
-        return d
-
     def __str__(self):
-        return '{%s}' % ', '.join(([": ".join(map(repr, (k, v))) for
-                                    k, v in iteritems(self)]))
+        return _str(self, '{%s}', self.items,
+                    lambda x: repr(x[0]) + ': ' + repr(x[1]))
+
+    def items(self):
+        for k, v in self.redis.hscan_iter(self.name):
+            yield self.key_serializer.loads(k), self.serializer.loads(v)
+
+    def iteritems(self):
+        return self.items()
 
 
-class RedisSortedSet(MutableMapping):
+class RedisSortedSet(MutableMapping, MutableSequence):
     """
     A Redis sorted set wrapped as a dict.  Entries are stored in the dictionary
     keys, scores are their values. Items are sorted in order by their values.
     Values must be floating point numbers.
     """
-
-    #     This class provides concrete generic implementations of all
-    # methods except for __getitem__, __setitem__, __delitem__,
-    #     __iter__, and __len__.
 
     def __init__(self, name, redis=StrictRedis(), serializer=pickle):
         """
@@ -469,15 +463,18 @@ class RedisSortedSet(MutableMapping):
         return self.redis.zscore(self.name, self.serializer.dumps(item)) \
             is not None
 
-    def copy(self):
-        """Create a Python OrderedDict of the contents of this set"""
-        return OrderedDict([(self.serializer.loads(k), v) for
-                            k, v in self.redis.zscan_iter(self.name)])
+    def items(self):
+        """Return a generator over the keys and their sort values"""
+        for k, v in self.redis.zscan_iter(self.name):
+            yield self.serializer.loads(k), v
+
+    def iteritems(self):
+        return self.items()
 
     def __iter__(self):
-        """Iterate over the whole set. O(N)"""
-        return [self.serializer.loads(k) for
-                k, v in self.redis.zscan_iter(self.name)].__iter__()
+        """Iterate over the keys, in order. O(N)"""
+        for k, v in self.redis.zscan_iter(self.name):
+            yield self.serializer.loads(k)
 
     def __len__(self):
         """Get the size of the set. O(1)"""
@@ -506,24 +503,26 @@ class RedisSortedSet(MutableMapping):
         else:
             raise ValueError()
 
+    def insert(self, index, value):
+        raise NotImplementedError("Sort order is maintained by key.")
+
     def __delitem__(self, value):
         if self.redis.zrem(self.name, self.serializer.dumps(value)) == 0:
             raise KeyError()
 
     def update(*args, **kwds):
-        newstuff = {}
+        new_stuff = {}
         self = args[0]
         args = args[1:]
-        newstuff.update(*args, **kwds)
+        new_stuff.update(*args, **kwds)
         self.redis.zadd(self.name,
                         *[i for sub in [(v + 0, self.serializer.dumps(k))
-                                        for k, v in iteritems(newstuff)]
+                                        for k, v in iteritems(new_stuff)]
                           for i in sub])
 
     def clear(self):
         self.redis.delete(self.name)
 
     def __str__(self):
-        return 'RedisSortedSet({%s})' % \
-               ', '.join(([": ".join(map(repr, (k, v))) for
-                           k, v in iteritems(self)]))
+        return _str(self, '{%s}', self.items,
+                    lambda x: repr(x[0]) + ': ' + repr(x[1]))

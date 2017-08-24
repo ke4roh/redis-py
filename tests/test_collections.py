@@ -80,14 +80,17 @@ class TestRedisList(object):
     def test_copy(self, sr):
         l = RedisList('l', sr)
         l.extend([1, 2, 3, 4])
-        assert [1, 2, 3, 4] == l.copy()
+        assert [1, 2, 3, 4] == list(l)
 
     def test_str(self, sr):
         l = RedisList('l', sr)
         l.extend([1, 2, 3, 4])
-        assert str([1, 2, 3, 4]) == str(l)
+        assert '<RedisList(name=l,[1, 2, 3, 4])>' == str(l)
         l.append('x')
-        assert str([1, 2, 3, 4, 'x']) == str(l)
+        assert "<RedisList(name=l,[1, 2, 3, 4, 'x'])>" == str(l)
+        l.extend(range(6, 13))
+        assert "<RedisList(name=l,[1, 2, 3, 4, 'x', 6, " \
+               "7, 8, 9, 10, …])>" == str(l)
 
 
 class TestObjectRedis(object):
@@ -105,7 +108,7 @@ class TestObjectRedis(object):
         assert len(d) == 2
 
         assert set([True, 3]) == set(d.keys())
-        assert {True: 42.1, 3: 'three'} == d.copy()
+        assert {True: 42.1, 3: 'three'} == dict(d)
 
     def test_namespace(self, sr):
         d = ObjectRedis(sr, namespace="foo")
@@ -131,17 +134,17 @@ class TestObjectRedis(object):
     def test_storing_collections(self, sr):
         d = ObjectRedis(sr)
         d['list'] = [1, 2, 3, 4, 5]
-        assert [1, 2, 3, 4, 5] == d['list'].copy()
+        assert [1, 2, 3, 4, 5] == list(d['list'])
         d['map'] = {'a': 'red', 'b': 'blue'}
-        assert {'a': 'red', 'b': 'blue'} == d['map'].copy()
+        assert {'a': 'red', 'b': 'blue'} == dict(d['map'])
         od = OrderedDict()
         od[89.7] = 'WCPE'
         od[91.5] = 'WUNC'
         d['od'] = od
-        assert od == d['od'].copy()
+        assert od == dict(d['od'])
         s = set(['oats', 'peas', 'beans'])
         d['set'] = s
-        assert s == d['set'].copy()
+        assert s == set(d['set'])
 
 
 class TestRedisDict(object):
@@ -164,14 +167,18 @@ class TestRedisDict(object):
         d = RedisDict('foo', redis=sr)
         d['a'] = 'A'
         d['c'] = 'C'
-        assert {'a': 'A', 'c': 'C'} == d.copy()
+        assert {'a': 'A', 'c': 'C'} == dict(d)
 
     def test_str(self, sr):
         d = RedisDict('foo', redis=sr)
         refd = {'sunshine': 'rainbows', 'moon': 'eclipse'}
         d.update(refd)
-        assert "{'moon': 'eclipse', 'sunshine': 'rainbows'}" == str(d) or \
-               "{'sunshine': 'rainbows', 'moon': 'eclipse'}" == str(d)
+        assert \
+            "<RedisDict(name=foo," \
+            "{'moon': 'eclipse', 'sunshine': 'rainbows'})>" \
+            == str(d) or \
+            "<RedisDict(name=foo," \
+            "{'sunshine': 'rainbows', 'moon': 'eclipse'})>" == str(d)
 
 
 class TestRedisSortedSet(object):
@@ -186,7 +193,7 @@ class TestRedisSortedSet(object):
             s['bar'] = 'baz'
         od = OrderedDict()
         od['bar'] = 5.0
-        assert od == s.copy()
+        assert od == OrderedDict(s)
         assert 1 == len(s)
 
         assert not ('bat' in s)
@@ -195,7 +202,7 @@ class TestRedisSortedSet(object):
         assert 1.0 == s['bat']
         od['bat'] = 1.0
         od.move_to_end('bar')
-        assert od == s.copy()
+        assert od == OrderedDict(s)
 
     def test_iter(self, sr):
         s = RedisSortedSet('foo', redis=sr)
@@ -214,7 +221,7 @@ class TestRedisSortedSet(object):
         od['blue'] = 475
         od['green'] = 510
         od['red'] = 650
-        assert od == s.copy()
+        assert od == OrderedDict(s)
 
     def test_hashable_key(self, sr):
         s = RedisSortedSet('foo', redis=sr)
@@ -224,7 +231,8 @@ class TestRedisSortedSet(object):
     def test_str(self, sr):
         s = RedisSortedSet('foo', redis=sr)
         s.update({'H': 1, 'He': 2, 'Li': 3})
-        assert "RedisSortedSet({'H': 1.0, 'He': 2.0, 'Li': 3.0})" == str(s)
+        assert "<RedisSortedSet(name=foo,{'H': 1.0, 'He': 2.0, 'Li': 3.0})>" \
+               == str(s)
 
 
 class TestRedisSet(object):
@@ -233,8 +241,8 @@ class TestRedisSet(object):
         s.add('grunge')
         assert ('grunge' in s)
         s.add(True)
-        s.add(('graph'))
-        assert set(['grunge', True, ('graph')]) == set(s)
+        s.add(('graph',))
+        assert set(['grunge', True, ('graph',)]) == set(s)
         assert 3 == len(s)
         assert 3 == sum(1 for _ in s)
 
@@ -248,12 +256,10 @@ class TestRedisSet(object):
         s = RedisSet('foo', redis=sr)
         s.add(0)
         assert 1 == len(s)
-        assert set([0]) == s.copy()
         assert set([0]) == set(s)
 
         s.add(None)
         assert 2 == len(s)
-        assert set([0, None]) == s.copy()
         assert set([0, None]) == set(s)
 
     def test_update(self, sr):
@@ -261,13 +267,11 @@ class TestRedisSet(object):
         ref = set(['oats', 'peas', 'beans'])
         s.update(tuple(ref))
         assert ref == set(s)
-        assert ref == s.copy()
 
     def test_update_with_nothing(self, sr):
         s = RedisSet('bar', sr)
         s.update([])  # should have no effect
         assert set() == set(s)
-        assert set() == s.copy()
         assert 0 == len(s)
 
         s.update()
@@ -285,7 +289,7 @@ class TestRedisSet(object):
         ref = set(range(0, 10000))
         s.update(ref)
         assert len(ref) == len(s)
-        assert ref == s.copy()
+        assert ref == set(s)
         assert ref == set(s.__iter__())
         s.clear()
         assert 0 == len(s)
@@ -293,4 +297,5 @@ class TestRedisSet(object):
     def test_str(self, sr):
         s = RedisSet('bar', sr)
         s.update(['foo', 'bar'])
-        assert "{'foo', 'bar'}" == str(s) or "{'bar', 'foo'}" == str(s)
+        assert "<RedisSet(name=bar,{'foo', 'bar'})>" == str(s) or \
+               "<RedisSet(name=bar,{'bar', 'foo'})>" == str(s)
