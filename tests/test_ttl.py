@@ -20,7 +20,7 @@ class TestRedisTTLSet(object):
         assert 3 == len(s)
         t = 6
         assert 2 == sum(1 for _ in s)
-        assert {True, ('graph')} == set(s)
+        assert set([True, ('graph')]) == set(s)
 
         with pytest.raises(TypeError):
             s.add(['nohash'])

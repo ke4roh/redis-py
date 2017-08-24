@@ -247,8 +247,8 @@ class TestRedisSet(object):
         s = RedisSet('foo', redis=sr)
         s.add(0)
         assert 1 == len(s)
-        assert {0} == s.copy()
-        assert {0} == set(s)
+        assert set([0]) == s.copy()
+        assert set([0]) == set(s)
 
         s.add(None)
         assert 2 == len(s)
