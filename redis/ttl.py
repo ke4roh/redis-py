@@ -167,8 +167,8 @@ class RedisTTLSet(collections.MutableSet):
 
     def update(self, *other):
         t = self.time() + self.ttl
-        self.dict.update({k: t for k in
-                          [item for sublist in other for item in sublist]})
+        self.dict.update((dict((k, t) for k in
+                          [item for sublist in other for item in sublist])))
 
     def add(self, item):
         self.dict[item] = self.time() + self.ttl
