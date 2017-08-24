@@ -35,6 +35,7 @@ Getting Started
 ---------------
 
 For using Redis backed by collections
+
 .. code-block:: pycon
 
     >>> from redis.collections import ObjectRedis
@@ -57,6 +58,7 @@ You can also instantiate a RedisList, RedisDict, RedisSet, or RedisSortedSet dir
 and offer redis parameter for passing in the StrictRedis instance to use.
 
 For executing Redis commands explicitly
+
 .. code-block:: pycon
     >>> import redis
     >>> r = redis.StrictRedis(host='localhost', port=6379, db=0)
