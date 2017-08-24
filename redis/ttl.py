@@ -13,9 +13,9 @@ def _missing(x):
 
 class ObjectRedisTTL(ObjectRedis):
     """
-    A TTL cache backed by a Redis database, supporting object keys and arbitrary
-    object values.  This implementation uses the Redis key namespace as the
-    namespace for its keys, and uses Redis to manage the TTL aspect.
+    A TTL cache backed by a Redis database, supporting object keys and
+    arbitrary object values.  This implementation uses the Redis key namespace
+    as the namespace for its keys, and uses Redis to manage the TTL aspect.
     """
 
     def __init__(self, ttl, missing=_missing, redis=redis.StrictRedis(),
@@ -49,7 +49,9 @@ class ObjectRedisTTL(ObjectRedis):
             return self.__missing(key)
 
     def __setitem__(self, key, value):
-        self.redis.setex(name=self._ns(key), time=self.ttl, value=self.serializer.dumps(value))
+        self.redis.setex(name=self._ns(key),
+                         time=self.ttl,
+                         value=self.serializer.dumps(value))
 
     def __missing(self, key):
         val = self.missing(key)
@@ -93,7 +95,8 @@ class RedisTTLSet(collections.MutableSet):
     A set, whose items expire after a specified time.
     """
 
-    def __init__(self, name, ttl, redis=redis.StrictRedis(), serializer=pickle, time=None):
+    def __init__(self, name, ttl, redis=redis.StrictRedis(),
+                 serializer=pickle, time=None):
         """
 
         :param name: The name of this collection - its key in Redis
@@ -120,9 +123,9 @@ class RedisTTLSet(collections.MutableSet):
 
     def __iter__(self):
         """
-        :return: An iterator over all the items.  Only items that were available
-          at the initial call time will be returned.  Only non-expired items
-          will be returned.
+        :return: An iterator over all the items.  Only items that were
+          available at the initial call time will be returned.  Only
+          non-expired items will be returned.
         """
         self.__cleanup()
         for k, v in self.dict.items():
@@ -136,7 +139,8 @@ class RedisTTLSet(collections.MutableSet):
     def __contains__(self, item):
         """
         :param item:
-        :return: True if the item is in the set and not expired, false otherwise
+        :return: True if the item is in the set and not expired, false
+            otherwise
         """
         expiry = self.dict.get(item, None)
         if expiry is None:

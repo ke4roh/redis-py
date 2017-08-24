@@ -4,6 +4,7 @@ from redis.collections import \
     RedisSortedSet, RedisDict, RedisSet, RedisList, ObjectRedis
 from redis._compat import OrderedDict
 
+
 class TestRedisList(object):
     def test_list(self, sr):
         l = RedisList('foo', redis=sr)
@@ -169,7 +170,7 @@ class TestRedisDict(object):
         d = RedisDict('foo', redis=sr)
         refd = {'sunshine': 'rainbows', 'moon': 'eclipse'}
         d.update(refd)
-        assert "{'moon': 'eclipse', 'sunshine': 'rainbows'}" == str(d) or \
+        assert "{'moon': 'eclipse', 'sunshine   ': 'rainbows'}" == str(d) or \
                "{'sunshine': 'rainbows', 'moon': 'eclipse'}" == str(d)
 
 

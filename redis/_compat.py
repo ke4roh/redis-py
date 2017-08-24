@@ -9,14 +9,13 @@ except:
 
 # For Python older than 3.5, retry EINTR.
 if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
-                                       sys.version_info[1] < 5):
+                               sys.version_info[1] < 5):
     # Adapted from https://bugs.python.org/review/23863/patch/14532/54418
     import socket
     import time
     import errno
 
     from select import select as _select
-
 
     def select(rlist, wlist, xlist, timeout):
         while True:
@@ -28,7 +27,6 @@ if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
                 if getattr(e, 'errno', None) == getattr(errno, 'EINTR', 4):
                     continue
                 raise
-
 
     # Wrapper for handling interruptable system calls.
     def _retryable_call(s, func, *args, **kwargs):
@@ -68,10 +66,8 @@ if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
             if timeout:
                 s.settimeout(timeout)
 
-
     def recv(sock, *args, **kwargs):
         return _retryable_call(sock, sock.recv, *args, **kwargs)
-
 
     def recv_into(sock, *args, **kwargs):
         return _retryable_call(sock, sock.recv_into, *args, **kwargs)
@@ -79,10 +75,8 @@ if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
 else:  # Python 3.5 and above automatically retry EINTR
     from select import select
 
-
     def recv(sock, *args, **kwargs):
         return sock.recv(*args, **kwargs)
-
 
     def recv_into(sock, *args, **kwargs):
         return sock.recv_into(*args, **kwargs)
@@ -99,7 +93,6 @@ if sys.version_info[0] < 3:
     except ImportError:
         from StringIO import StringIO as BytesIO
 
-
     # special unicode handling for python2 to avoid UnicodeDecodeError
     def safe_unicode(obj, *args):
         """ return the unicode representation of obj """
@@ -110,38 +103,29 @@ if sys.version_info[0] < 3:
             ascii_text = str(obj).encode('string_escape')
             return unicode(ascii_text)
 
-
     def iteritems(x):
         return x.iteritems()
-
 
     def iterkeys(x):
         return x.iterkeys()
 
-
     def itervalues(x):
         return x.itervalues()
-
 
     def nativestr(x):
         return x if isinstance(x, str) else x.encode('utf-8', 'replace')
 
-
     def u(x):
         return x.decode()
-
 
     def b(x):
         return x
 
-
     def next(x):
         return x.next()
 
-
     def byte_to_chr(x):
         return x
-
 
     unichr = unichr
     xrange = xrange
@@ -155,34 +139,26 @@ else:
     from string import ascii_letters
     from queue import Queue
 
-
     def iteritems(x):
         return iter(x.items())
-
 
     def iterkeys(x):
         return iter(x.keys())
 
-
     def itervalues(x):
         return iter(x.values())
-
 
     def byte_to_chr(x):
         return chr(x)
 
-
     def nativestr(x):
         return x if isinstance(x, str) else x.decode('utf-8', 'replace')
-
 
     def u(x):
         return x
 
-
     def b(x):
         return x.encode('latin-1') if not isinstance(x, bytes) else x
-
 
     next = next
     unichr = chr
@@ -204,7 +180,6 @@ except ImportError:
         from Queue import LifoQueue
     except ImportError:  # Python 2.5
         from Queue import Queue
-
 
         # From the Python 2.7 lib. Python 2.5 already extracted the core
         # methods to aid implementating different queue organisations.
@@ -252,7 +227,7 @@ except ImportError:
     from UserDict import UserDict
 
     class OrderedDict(UserDict):
-        def __init__(self, dict = None):
+        def __init__(self, dict=None):
             self._keys = []
             UserDict.__init__(self, dict)
 
@@ -262,7 +237,8 @@ except ImportError:
 
         def __setitem__(self, key, item):
             UserDict.__setitem__(self, key, item)
-            if key not in self._keys: self._keys.append(key)
+            if key not in self._keys:
+                self._keys.append(key)
 
         def clear(self):
             UserDict.clear(self)
@@ -290,9 +266,10 @@ except ImportError:
 
             return (key, val)
 
-        def setdefault(self, key, failobj = None):
+        def setdefault(self, key, failobj=None):
             UserDict.setdefault(self, key, failobj)
-            if key not in self._keys: self._keys.append(key)
+            if key not in self._keys:
+                self._keys.append(key)
 
         def update(self, dict):
             UserDict.update(self, dict)

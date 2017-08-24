@@ -36,7 +36,8 @@ class ObjectRedis(MutableMapping):
         self.redis = redis
         self.namespace = None
         if namespace is not None:
-            self.namespace = ((type(namespace) is bytes and namespace) or str(namespace).encode('utf-8')) + b":::"
+            self.namespace = ((type(namespace) is bytes and namespace) or
+                              str(namespace).encode('utf-8')) + b":::"
         self.serializer = serializer
         self.key_serializer = key_serializer
 
@@ -60,7 +61,8 @@ class ObjectRedis(MutableMapping):
         elif rtype == b'set':
             return RedisSet(rkey, self.redis, self.serializer)
         elif rtype == b'hash':
-            return RedisDict(rkey, self.redis, self.serializer, self.key_serializer)
+            return RedisDict(rkey, self.redis,
+                             self.serializer, self.key_serializer)
         elif rtype == b'zset':
             return RedisSortedSet(rkey, self.redis, self.serializer)
         else:
@@ -134,8 +136,8 @@ class ObjectRedis(MutableMapping):
         to the number of keys in this namespace.
         """
         for k in self.redis.scan_iter(
-                match=(self.namespace is not None and self.namespace + b'*')
-                or None):
+                match=((self.namespace is not None and
+                        self.namespace + b'*') or None)):
             try:
                 # __dns can't be done in a list comprehension because the
                 # exceptions need to be handled in the case of a null namespace
@@ -170,8 +172,8 @@ class ObjectRedis(MutableMapping):
 
     def _ns(self, key):
         """
-        Convert an object key into one with the redis namespace and a serialized
-        version of the suffix
+        Convert an object key into one with the redis namespace and a
+        serialized version of the suffix
         :param key: any object
         :return: a redis key beginning with the namepsace for this object,
             followed by the serialized object
@@ -242,7 +244,8 @@ class RedisList(MutableSequence):
         self.redis.rpush(self.name, self.serializer.dumps(value))
 
     def extend(self, values):
-        self.redis.rpush(self.name, *[self.serializer.dumps(v) for v in values])
+        self.redis.rpush(self.name,
+                         *[self.serializer.dumps(v) for v in values])
 
     def clear(self):
         self.redis.delete(self.name)
