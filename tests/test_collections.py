@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import pytest
-from redis.collections import RedisSortedSet, RedisDict, RedisSet, RedisList, ObjectRedis
+from redis.collections import \
+    RedisSortedSet, RedisDict, RedisSet, RedisList, ObjectRedis
 from redis._compat import OrderedDict
 
 class TestRedisList(object):
@@ -97,7 +98,8 @@ class TestObjectRedis(object):
         d[True] = 42.1
         assert len(d) == 1
         assert d[True] == 42.1
-        d[3] = 'three'  # turns out d[1] and d[True] are equivalent in the standard implementations
+        d[3] = 'three'  # turns out d[1] and d[True] are equivalent
+        # in the standard implementations
         assert d[3] == 'three'
         assert len(d) == 2
 
@@ -117,7 +119,8 @@ class TestObjectRedis(object):
         assert len(d) == 2
 
         d2 = ObjectRedis(sr)
-        assert len(d2) == 0  # This instance won't unpickle keys from the other instance, so can't see them
+        assert len(d2) == 0  # This instance won't unpickle keys from the other
+        # instance, so can't see them
         d2[True] = 38
         assert len(d) == 2
         assert len(d2) == 1

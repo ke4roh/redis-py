@@ -3,7 +3,7 @@ import pytest
 from redis.ttl import RedisTTLSet, ObjectRedisTTL
 import pickle
 
-__author__ = 'jscarbor'
+__author__ = 'ke4roh'
 
 
 class TestRedisTTLSet(object):
@@ -38,7 +38,8 @@ class TestRedisTTLSet(object):
         s.add('abby')
         assert 3 == len(s)
 
-        # Watch actual size in storage decrease as an element is removed for expiration
+        # Watch actual size in storage decrease as an element is removed for
+        # expiration
         assert 3 == sr.zcard('foo')
         t = 6.1
         assert 3 == sr.zcard('foo')
@@ -59,7 +60,8 @@ class TestRedisTTLSet(object):
         assert set(['grunge', 'oscar', 'abby']) == s.copy()
         assert 3 == len(s)
 
-        # Watch actual size in storage decrease as an element is removed for expiration
+        # Watch actual size in storage decrease as an element is removed for
+        # expiration
         assert 3 == sr.zcard('foo')
         t = 6.1
         assert 3 == sr.zcard('foo')

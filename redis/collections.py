@@ -5,25 +5,31 @@ import pickle
 from collections import MutableMapping, MutableSequence, MutableSet
 from ._compat import iteritems, OrderedDict
 
-__author__ = 'jscarbor'
+__author__ = 'ke4roh'
 
 
 class ObjectRedis(MutableMapping):
     """
-    View on a Redis database, supporting object keys and arbitrary object values.  This implementation
-    uses the Redis key namespace as the namespace for its keys.
+    View on a Redis database, supporting object keys and arbitrary object
+    values.  This implementation uses the Redis key namespace as the namespace
+    for its keys.
 
-    If collections are stored in Redis with the supported collection types, the basic
-    python-wrapped collections will be returned, using the same serlalizers provided (default is pickle).
+    If collections are stored in Redis with the supported collection types, the
+    basic python-wrapped collections will be returned, using the same
+    serlalizers provided (default is pickle).
     """
 
-    def __init__(self, redis=StrictRedis(), namespace=None, serializer=pickle, key_serializer=pickle):
+    def __init__(self, redis=StrictRedis(), namespace=None, serializer=pickle,
+                 key_serializer=pickle):
         """
         :param redis: The StrictRedis connection to use
-        :param namespace: Prepended to keys, None to prepend nothing.  If namespace is none, then all contents of the
-              database are considered members of the collection and processed through the serializers.  The namespace
-              will be encoded as bytes (str(ns).encode('utf-8')) if it's not already a byte array
-        :param serializer: An object containing functions "dumps" to turn an object (to store) into a byte array, and
+        :param namespace: Prepended to keys, None to prepend nothing.  If
+              namespace is none, then all contents of the database are
+              considered members of the collection and processed through the
+              serializers.  The namespace will be encoded as bytes
+              (str(ns).encode('utf-8')) if it's not already a byte array
+        :param serializer: An object containing functions "dumps" to turn an
+             object (to store) into a byte array, and
              "loads" to turn a byte array into an object.  Default = pickle
         :param key_serializer: Like serializer, but applied to keys
         """
@@ -35,6 +41,11 @@ class ObjectRedis(MutableMapping):
         self.key_serializer = key_serializer
 
     def __getitem__(self, key):
+        """
+        Get an item from the collection in constant time O(1)
+        :param key: The key to find (any object)
+        :return: The value at that key
+        """
         rkey = self._ns(key)
         rtype = self.redis.type(rkey)
         if rtype == b'none':
@@ -62,6 +73,12 @@ class ObjectRedis(MutableMapping):
             return default
 
     def __setitem__(self, key, value):
+        """
+        Set an item in the collection, constant time O(1)
+        :param key:
+        :param value:
+        :return:
+        """
         key.__hash__()
         bkey = self._ns(key)
         d = dir(value)
@@ -97,23 +114,42 @@ class ObjectRedis(MutableMapping):
             self.redis.set(name=bkey, value=self.serializer.dumps(value))
 
     def __contains__(self, key):
+        """
+        O(1)
+        :return: True if the key exists in Redis, false otherwise
+        """
         return self.redis.exists(self._ns(key))
 
     def __delitem__(self, key):
+        """
+        Remove an item from the collection O(1)
+        :raises KeyError if the key is not in the collection
+        """
         if self.redis.delete(self._ns(key)) == 0:
             raise KeyError(str(key))
 
     def __iter__(self):
-        for k in self.redis.scan_iter(match=(self.namespace is not None and self.namespace + b'*') or None):
+        """
+        Return an iterator over the keys in this object.  Time is proportional
+        to the number of keys in this namespace.
+        """
+        for k in self.redis.scan_iter(
+                match=(self.namespace is not None and self.namespace + b'*')
+                or None):
             try:
-                # __dns can't be done in a list comprehension because the exceptions need to be handled in
-                # the case of a null namespace and traversing other items, or in case of different
-                # pickling schemes, different namespace termination levels ("foo:" and "foo:bar:", etc.).
+                # __dns can't be done in a list comprehension because the
+                # exceptions need to be handled in the case of a null namespace
+                # and traversing other items, or in case of different pickling
+                # schemes, different namespace termination levels ("foo:" and
+                # "foo:bar:", etc.).
                 yield self._dns(k)
             except:  # Other namespaces won't match
                 pass
 
     def __len__(self):
+        """Time is proportional to the number of keys in this namespace.
+        :return number of items in this namespace
+        """
         return sum(1 for _ in self.__iter__())
 
     def _dns(self, key):
@@ -134,9 +170,11 @@ class ObjectRedis(MutableMapping):
 
     def _ns(self, key):
         """
-        Convert an object key into one with the redis namespace and a serialized version of the suffix
+        Convert an object key into one with the redis namespace and a serialized
+        version of the suffix
         :param key: any object
-        :return: a redis key beginning with the namepsace for this object, followed by the serialized object
+        :return: a redis key beginning with the namepsace for this object,
+            followed by the serialized object
         """
         if self.namespace is not None:
             return self.namespace + self.key_serializer.dumps(key)
@@ -151,7 +189,8 @@ class ObjectRedis(MutableMapping):
 
 
 class RedisList(MutableSequence):
-    """A list backed by Redis, using the Redis linked list construct, and stored a single Redis value.
+    """A list backed by Redis, using the Redis linked list construct, and stored
+    a single Redis value.
     Operations on the ends of the list, and len() are O(1).
     Operations on elements by index are O(N)."""
 
@@ -160,7 +199,8 @@ class RedisList(MutableSequence):
 
         :param name: The key for this entry in Redis
         :param redis: The StrictRedis connection to use
-        :param serializer: An object containing functions "dumps" to turn an object (to store) into a byte array, and
+        :param serializer: An object containing functions "dumps" to turn an
+             object (to store) into a byte array, and
              "loads" to turn a byte array into an object.  Default = pickle
         """
         self.name = name
@@ -177,7 +217,8 @@ class RedisList(MutableSequence):
         self.redis.lset(self.name, index, self.serializer.dumps(value))
 
     def __delitem__(self, index):
-        self.redis.pipeline().lset(self.name, index, '-=-DELETING-=-').lrem(self.name, 1, '-=-DELETING-=-').execute()
+        self.redis.pipeline().lset(self.name, index, '-=-DELETING-=-').\
+            lrem(self.name, 1, '-=-DELETING-=-').execute()
 
     def __len__(self):
         return self.redis.llen(self.name)
@@ -194,7 +235,8 @@ class RedisList(MutableSequence):
             pipe.lrem(self.name, 1, '-=-INSERTING-=-')
 
     def insert(self, index, value):
-        self.redis.transaction(lambda pipe: self.__insert(pipe, index, value), self.name)
+        self.redis.transaction(lambda pipe: self.__insert(pipe, index, value),
+                               self.name)
 
     def append(self, value):
         self.redis.rpush(self.name, self.serializer.dumps(value))
@@ -225,7 +267,8 @@ class RedisList(MutableSequence):
             rval = self.redis.lpop(self.name)
         else:
             rbox = []
-            self.redis.transaction(lambda pipe: self.__pop(pipe, index, rbox), self.name)
+            self.redis.transaction(lambda pipe: self.__pop(pipe, index, rbox),
+                                   self.name)
             if len(rbox):
                 rval = rbox[-1]
             else:
@@ -235,7 +278,8 @@ class RedisList(MutableSequence):
         return self.serializer.loads(rval)
 
     def __iter__(self):
-        return [self.serializer.loads(x) for x in self.redis.lrange(self.name, 0, self.__len__())].__iter__()
+        return [self.serializer.loads(x) for x in
+                self.redis.lrange(self.name, 0, self.__len__())].__iter__()
 
     def __contains__(self, item):
         try:
@@ -259,7 +303,9 @@ class RedisList(MutableSequence):
 
     def index(self, value, start=0, stop=None):
         rbox = []
-        self.redis.transaction(lambda pipe: self.__index(pipe, value, start, stop, rbox), self.name)
+        self.redis.transaction(lambda pipe:
+                               self.__index(pipe, value, start, stop, rbox),
+                               self.name)
         if len(rbox):
             return rbox[-1]
         else:
@@ -282,7 +328,8 @@ class RedisSet(MutableSet):
 
         :param name: The key for this entry in Redis
         :param redis: The StrictRedis connection to use
-        :param serializer: An object containing functions "dumps" to turn an object (to store) into a byte array, and
+        :param serializer: An object containing functions "dumps" to turn an
+             object (to store) into a byte array, and
              "loads" to turn a byte array into an object.  Default = pickle
         """
         self.name = name
@@ -308,12 +355,16 @@ class RedisSet(MutableSet):
         :return: the number of things added
         """
         if len(item):
-            # The call to __hash__ for each item insures it's hashable (i.e. unmodifiable), and thus suitable for a set.
-            # These sets are persisted and unmodifiable once they're saved, but I haven't thought of a good reason
-            # to change the basic contract for set - because this set will also be transformed into an in-memory set
-            # in some cases.
+            # The call to __hash__ for each item insures it's hashable (i.e.
+            # unmodifiable), and thus suitable for a set.
+            # These sets are persisted and unmodifiable once they're saved, but
+            # I haven't thought of a good reason to change the basic contract
+            # for set - because this set will also be transformed into an
+            # in-memory set in some cases.
             return self.redis.sadd(self.name,
-                                   *[(item.__hash__() or True) and self.serializer.dumps(item) for item in item])
+                                   *[(item.__hash__() or True) and
+                                     self.serializer.dumps(item)
+                                     for item in item])
         else:
             return 0
 
@@ -335,12 +386,14 @@ class RedisDict(MutableMapping):
     A dictionary, backed by Redis
     """
 
-    def __init__(self, name, redis=StrictRedis(), serializer=pickle, key_serializer=pickle):
+    def __init__(self, name, redis=StrictRedis(), serializer=pickle,
+                 key_serializer=pickle):
         """
 
         :param name: The key for this entry in Redis
         :param redis: The StrictRedis connection to use
-        :param serializer: An object containing functions "dumps" to turn an object (to store) into a byte array, and
+        :param serializer: An object containing functions "dumps" to turn an
+             object (to store) into a byte array, and
              "loads" to turn a byte array into an object.  Default = pickle
         :param key_serializer: Like serializer, but applied to keys
         """
@@ -357,7 +410,8 @@ class RedisDict(MutableMapping):
 
     def __setitem__(self, item, value):
         item.__hash__()  # raise a TypeError if it isn't immutable
-        self.redis.hset(self.name, self.key_serializer.dumps(item), self.serializer.dumps(value))
+        self.redis.hset(self.name, self.key_serializer.dumps(item),
+                        self.serializer.dumps(value))
 
     def __delitem__(self, item):
         if not self.redis.hdel(self.name, self.key_serializer.dumps(item)):
@@ -379,13 +433,15 @@ class RedisDict(MutableMapping):
         return d
 
     def __str__(self):
-        return '{%s}' % ', '.join(([": ".join(map(repr, (k, v))) for k, v in iteritems(self)]))
+        return '{%s}' % ', '.join(([": ".join(map(repr, (k, v))) for
+                                    k, v in iteritems(self)]))
 
 
 class RedisSortedSet(MutableMapping):
     """
-    A Redis sorted set wrapped as a dict.  Entries are stored in the dictionary keys, scores are their values.
-    Items are sorted in order by their values.  Values must be floating point numbers.
+    A Redis sorted set wrapped as a dict.  Entries are stored in the dictionary
+    keys, scores are their values. Items are sorted in order by their values.
+    Values must be floating point numbers.
     """
 
     #     This class provides concrete generic implementations of all
@@ -397,7 +453,8 @@ class RedisSortedSet(MutableMapping):
 
         :param name: The name of this set in Redis
         :param redis: The StrictRedis you want to use
-        :param serializer: An object containing functions "dumps" to turn an object (to store) into a byte array, and
+        :param serializer: An object containing functions "dumps" to turn an
+             object (to store) into a byte array, and
              "loads" to turn a byte array into an object.  Default = pickle
         """
         self.name = name
@@ -406,15 +463,18 @@ class RedisSortedSet(MutableMapping):
 
     def __contains__(self, item):
         """Test to see if a key is in the set. O(1)"""
-        return self.redis.zscore(self.name, self.serializer.dumps(item)) is not None
+        return self.redis.zscore(self.name, self.serializer.dumps(item)) \
+            is not None
 
     def copy(self):
         """Create a Python OrderedDict of the contents of this set"""
-        return OrderedDict([(self.serializer.loads(k), v) for k, v in self.redis.zscan_iter(self.name)])
+        return OrderedDict([(self.serializer.loads(k), v) for
+                            k, v in self.redis.zscan_iter(self.name)])
 
     def __iter__(self):
         """Iterate over the whole set. O(N)"""
-        return [self.serializer.loads(k) for k, v in self.redis.zscan_iter(self.name)].__iter__()
+        return [self.serializer.loads(k) for
+                k, v in self.redis.zscan_iter(self.name)].__iter__()
 
     def __len__(self):
         """Get the size of the set. O(1)"""
@@ -429,12 +489,14 @@ class RedisSortedSet(MutableMapping):
 
     def __setitem__(self, key, value):
         """Put an item in the set. O(log N)"""
-        key.__hash__()  # See that it's hashable, otherwise it's not suitable for a key
+        key.__hash__()  # See that it's hashable, otherwise it's not a key
         self.redis.zadd(self.name, value + 0.0, self.serializer.dumps(key))
 
     def index(self, value):
-        """Return the rank of the value (its ordinal position in the set).  O(log N)"""
-        # This signature doesn't match the one from collections.Sequence because specifying range is nonsense
+        """Return the rank of the value (its ordinal position in the set).
+        O(log N)"""
+        # This signature doesn't match the one from collections.Sequence
+        # because specifying range is nonsense
         rval = self.redis.zrank(self.name, self.serializer.dumps(value))
         if rval is not None:
             return rval
@@ -451,11 +513,14 @@ class RedisSortedSet(MutableMapping):
         args = args[1:]
         newstuff.update(*args, **kwds)
         self.redis.zadd(self.name,
-                        *[i for sub in [(v + 0, self.serializer.dumps(k)) for k, v in iteritems(newstuff)] for i in
-                          sub])
+                        *[i for sub in [(v + 0, self.serializer.dumps(k))
+                                        for k, v in iteritems(newstuff)]
+                          for i in sub])
 
     def clear(self):
         self.redis.delete(self.name)
 
     def __str__(self):
-        return 'RedisSortedSet({%s})' % ', '.join(([": ".join(map(repr, (k, v))) for k, v in iteritems(self)]))
+        return 'RedisSortedSet({%s})' % \
+               ', '.join(([": ".join(map(repr, (k, v))) for
+                           k, v in iteritems(self)]))
