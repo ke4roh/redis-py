@@ -8,7 +8,7 @@ class TestRedisList(object):
         l = RedisList('foo', redis=sr)
         assert 0 == len(l)
         with pytest.raises(StopIteration):
-            l.__iter__().__next__()
+            next(l.__iter__())
         l.append(1)
         assert 1 == len(l)
         assert 1 == l[0]

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 from redis import StrictRedis
 import pickle
 from collections import MutableMapping, MutableSequence, MutableSet
@@ -109,9 +110,7 @@ class ObjectRedis(MutableMapping):
                 # the case of a null namespace and traversing other items, or in case of different
                 # pickling schemes, different namespace termination levels ("foo:" and "foo:bar:", etc.).
                 yield self._dns(k)
-            except ValueError:  # Other namespaces won't match
-                pass
-            except pickle.UnpicklingError:  # Other namespaces and schemes won't work
+            except:  # Other namespaces won't match
                 pass
 
     def __len__(self):
