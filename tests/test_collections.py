@@ -135,7 +135,7 @@ class TestObjectRedis(object):
         od[91.5] = 'WUNC'
         d['od'] = od
         assert od == d['od'].copy()
-        s = {'oats', 'peas', 'beans'}
+        s = set(['oats', 'peas', 'beans'])
         d['set'] = s
         assert s == d['set'].copy()
 

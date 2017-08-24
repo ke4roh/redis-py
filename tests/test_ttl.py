@@ -16,7 +16,7 @@ class TestRedisTTLSet(object):
         s.add(True)
         t = 3
         s.add(('graph'))
-        assert {'grunge', True, ('graph')} == set(s)
+        assert set(['grunge', True, ('graph')]) == set(s)
         assert 3 == len(s)
         t = 6
         assert 2 == sum(1 for _ in s)
@@ -56,14 +56,14 @@ class TestRedisTTLSet(object):
         s.add('oscar')
         t = 3
         s.add('abby')
-        assert {'grunge', 'oscar', 'abby'} == s.copy()
+        assert set(['grunge', 'oscar', 'abby']) == s.copy()
         assert 3 == len(s)
 
         # Watch actual size in storage decrease as an element is removed for expiration
         assert 3 == sr.zcard('foo')
         t = 6.1
         assert 3 == sr.zcard('foo')
-        assert {'oscar', 'abby'} == s.copy()
+        assert set(['oscar', 'abby']) == s.copy()
         assert 2 == sr.zcard('foo')
         t = 10
         assert set() == s.copy()
