@@ -153,7 +153,10 @@ class TestObjectRedis(object):
         print(str(d))
         assert "<ObjectRedis(namespace=None,{'list': " \
                "<RedisList(name=\"S'list'\\np0\\n.\",[1, 2, 3, 4, 5])>, " \
-               "'foo': 'bar'})>" == str(d)
+               "'foo': 'bar'})>" == str(d) or \
+               "<ObjectRedis(namespace=None,{'foo': 'bar', 'list': " \
+               "<RedisList(name=\"S'list'\\np0\\n.\",[1, 2, 3, 4, 5])>" \
+               "})>" == str(d)
 
 
 class TestRedisDict(object):
