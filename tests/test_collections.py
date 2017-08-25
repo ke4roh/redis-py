@@ -108,7 +108,7 @@ class TestObjectRedis(object):
         assert len(d) == 2
 
         assert set([True, 3]) == set(d.keys())
-        assert {True: 42.1, 3: 'three'} == dict(d)
+        assert {True: 42.1, 3: 'three'} == dict(d.items())
 
     def test_namespace(self, sr):
         d = ObjectRedis(sr, namespace="foo")
@@ -136,12 +136,12 @@ class TestObjectRedis(object):
         d['list'] = [1, 2, 3, 4, 5]
         assert [1, 2, 3, 4, 5] == list(d['list'])
         d['map'] = {'a': 'red', 'b': 'blue'}
-        assert {'a': 'red', 'b': 'blue'} == dict(d['map'])
+        assert {'a': 'red', 'b': 'blue'} == dict(d['map'].items())
         od = OrderedDict()
         od[89.7] = 'WCPE'
         od[91.5] = 'WUNC'
         d['od'] = od
-        assert od == dict(d['od'])
+        assert od == OrderedDict(d['od'].items())
         s = set(['oats', 'peas', 'beans'])
         d['set'] = s
         assert s == set(d['set'])
@@ -179,7 +179,13 @@ class TestRedisDict(object):
         d = RedisDict('foo', redis=sr)
         d['a'] = 'A'
         d['c'] = 'C'
-        assert {'a': 'A', 'c': 'C'} == dict(d)
+        # d.items() is much preferred because it fetches the contents
+        # of the dictionary in a minimum number of round-trips to the
+        # database.  dict(d.items()) and dict(d) are both O(N) (of course),
+        # but the latter is slower by constant time because each
+        # value is fetched individually, and the values are transmitted
+        # back to the client twice.
+        assert {'a': 'A', 'c': 'C'} == dict(d.items())
 
     def test_repr(self, sr):
         d = RedisDict('foo', redis=sr)
@@ -205,7 +211,7 @@ class TestRedisSortedSet(object):
             s['bar'] = 'baz'
         od = OrderedDict()
         od['bar'] = 5.0
-        assert od == OrderedDict(s)
+        assert od == OrderedDict(s.items())
         assert 1 == len(s)
 
         assert not ('bat' in s)
@@ -214,7 +220,7 @@ class TestRedisSortedSet(object):
         assert 1.0 == s['bat']
         od['bat'] = 1.0
         od.move_to_end('bar')
-        assert od == OrderedDict(s)
+        assert od == OrderedDict(s.items())
 
     def test_iter(self, sr):
         s = RedisSortedSet('foo', redis=sr)
@@ -233,7 +239,7 @@ class TestRedisSortedSet(object):
         od['blue'] = 475
         od['green'] = 510
         od['red'] = 650
-        assert od == OrderedDict(s)
+        assert od == OrderedDict(s.items())
 
     def test_hashable_key(self, sr):
         s = RedisSortedSet('foo', redis=sr)
