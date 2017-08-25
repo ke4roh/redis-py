@@ -57,7 +57,7 @@ class TestRedisTTLSet(object):
         s.add('oscar')
         t = 3
         s.add('abby')
-        assert set(['grunge', 'oscar', 'abby']) == s.copy()
+        assert set(['grunge', 'oscar', 'abby']) == set(s)
         assert 3 == len(s)
 
         # Watch actual size in storage decrease as an element is removed for
@@ -65,16 +65,21 @@ class TestRedisTTLSet(object):
         assert 3 == sr.zcard('foo')
         t = 6.1
         assert 3 == sr.zcard('foo')
-        assert set(['oscar', 'abby']) == s.copy()
+        assert set(['oscar', 'abby']) == set(s)
         assert 2 == sr.zcard('foo')
         t = 10
-        assert set() == s.copy()
+        assert set() == set(s)
         assert 0 == sr.zcard('foo')
 
         s.update(list(range(0, 50)))
         assert 50 == len(s)
         t = 16
         assert 0 == len(s)
+
+    def test_repr(self, sr):
+        s = RedisTTLSet('foo', 5, redis=sr)
+        s.add('grunge')
+        assert "<RedisTTLSet(name='foo',{'grunge'})>" == str(s)
 
 
 class TestObjectRedisTTL(object):
@@ -91,3 +96,7 @@ class TestObjectRedisTTL(object):
         assert '1-800-THE-LOST x' + str('foo') == ort['foo']
         assert 0 < sr.ttl(pickle.dumps('foo')) <= 5
         assert 'log' not in ort
+
+    def test_repr(self, sr):
+        ort = ObjectRedisTTL(5, redis=sr)
+        assert "<ObjectRedisTTL(namespace=None,{})>" == str(ort)

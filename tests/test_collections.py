@@ -82,14 +82,14 @@ class TestRedisList(object):
         l.extend([1, 2, 3, 4])
         assert [1, 2, 3, 4] == list(l)
 
-    def test_str(self, sr):
+    def test_repr(self, sr):
         l = RedisList('l', sr)
         l.extend([1, 2, 3, 4])
-        assert '<RedisList(name=l,[1, 2, 3, 4])>' == str(l)
+        assert "<RedisList(name='l',[1, 2, 3, 4])>" == str(l)
         l.append('x')
-        assert "<RedisList(name=l,[1, 2, 3, 4, 'x'])>" == str(l)
+        assert "<RedisList(name='l',[1, 2, 3, 4, 'x'])>" == str(l)
         l.extend(range(6, 13))
-        assert "<RedisList(name=l,[1, 2, 3, 4, 'x', 6, " \
+        assert "<RedisList(name='l',[1, 2, 3, 4, 'x', 6, " \
                "7, 8, 9, 10, …])>" == str(l)
 
 
@@ -146,6 +146,15 @@ class TestObjectRedis(object):
         d['set'] = s
         assert s == set(d['set'])
 
+    def test_repr(self, sr):
+        d = ObjectRedis(sr)
+        d['list'] = [1, 2, 3, 4, 5]
+        d['foo'] = 'bar'
+        print(str(d))
+        assert "<ObjectRedis(namespace=None,{'list': " \
+               "<RedisList(name=\"S'list'\\np0\\n.\",[1, 2, 3, 4, 5])>, " \
+               "'foo': 'bar'})>" == str(d)
+
 
 class TestRedisDict(object):
     def test_values(self, sr):
@@ -169,15 +178,15 @@ class TestRedisDict(object):
         d['c'] = 'C'
         assert {'a': 'A', 'c': 'C'} == dict(d)
 
-    def test_str(self, sr):
+    def test_repr(self, sr):
         d = RedisDict('foo', redis=sr)
         refd = {'sunshine': 'rainbows', 'moon': 'eclipse'}
         d.update(refd)
         assert \
-            "<RedisDict(name=foo," \
+            "<RedisDict(name='foo'," \
             "{'moon': 'eclipse', 'sunshine': 'rainbows'})>" \
             == str(d) or \
-            "<RedisDict(name=foo," \
+            "<RedisDict(name='foo'," \
             "{'sunshine': 'rainbows', 'moon': 'eclipse'})>" == str(d)
 
 
@@ -228,10 +237,11 @@ class TestRedisSortedSet(object):
         with pytest.raises(TypeError):
             s[['nohash']] = 1
 
-    def test_str(self, sr):
+    def test_repr(self, sr):
         s = RedisSortedSet('foo', redis=sr)
         s.update({'H': 1, 'He': 2, 'Li': 3})
-        assert "<RedisSortedSet(name=foo,{'H': 1.0, 'He': 2.0, 'Li': 3.0})>" \
+        assert "<RedisSortedSet(name='foo'," \
+               "{'H': 1.0, 'He': 2.0, 'Li': 3.0})>" \
                == str(s)
 
 
@@ -294,8 +304,8 @@ class TestRedisSet(object):
         s.clear()
         assert 0 == len(s)
 
-    def test_str(self, sr):
+    def test_repr(self, sr):
         s = RedisSet('bar', sr)
         s.update(['foo', 'bar'])
-        assert "<RedisSet(name=bar,{'foo', 'bar'})>" == str(s) or \
-               "<RedisSet(name=bar,{'bar', 'foo'})>" == str(s)
+        assert "<RedisSet(name='bar',{'foo', 'bar'})>" == str(s) or \
+               "<RedisSet(name='bar',{'bar', 'foo'})>" == str(s)

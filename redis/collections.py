@@ -177,18 +177,44 @@ class ObjectRedis(MutableMapping):
         else:
             return self.key_serializer.dumps(key)
 
+    def __repr__(self):
+        return _repr(self, '{%s}', meta='namespace')
 
-def _str(obj, box='[%s]', iter=None, one=repr):
+
+def _repr(obj, box=None, meta="name"):
+    """
+    Generate string representations of collections in constant time and
+    reasonable screen real-estate by representing only the first few items
+    of the collection if there are many.
+
+    :param obj: The object (a collection) to represent
+    :param box: %s enclosed in the appropriate brackets for this collection,
+       default is "[%s]" for non-dicts, and "{%s}" for dicts.
+    :param meta: The field to display (default "name" or "namespace"
+    (or something else?))
+    :return: A string representation of the object
+    """
     l = []
-    if iter is None:
+    if 'items' in dir(obj):
+        iter = obj.items
+        box = box or '{%s}'
+
+        def one(x):
+            return repr(x[0]) + ': ' + repr(x[1])
+    else:
         iter = obj.__iter__
+        box = box or '[%s]'
+
+        def one(x):
+            return repr(x)
+
     for i in iter():
         if len(l) >= 10:
             l.append('…')
             break
         l.append(one(i))
-    return ('<%s(name=%s,' + box + ')>') % \
-           (obj.__class__.__name__, obj.name, ', '.join(l))
+    return ('<%s(%s=%r,' + box + ')>') % \
+           (obj.__class__.__name__, meta, obj.__dict__.get(meta), ', '.join(l))
 
 
 class RedisList(MutableSequence):
@@ -319,8 +345,8 @@ class RedisList(MutableSequence):
         else:
             raise ValueError()
 
-    def __str__(self):
-        return _str(self)
+    def __repr__(self):
+        return _repr(self)
 
 
 class RedisSet(MutableSet):
@@ -376,8 +402,8 @@ class RedisSet(MutableSet):
     def clear(self):
         self.redis.delete(self.name)
 
-    def __str__(self):
-        return _str(self, '{%s}')
+    def __repr__(self):
+        return _repr(self, '{%s}')
 
 
 class RedisDict(MutableMapping):
@@ -426,9 +452,8 @@ class RedisDict(MutableMapping):
     def clear(self):
         self.redis.delete(self.name)
 
-    def __str__(self):
-        return _str(self, '{%s}', self.items,
-                    lambda x: repr(x[0]) + ': ' + repr(x[1]))
+    def __repr__(self):
+        return _repr(self, '{%s}')
 
     def items(self):
         for k, v in self.redis.hscan_iter(self.name):
@@ -523,6 +548,5 @@ class RedisSortedSet(MutableMapping, MutableSequence):
     def clear(self):
         self.redis.delete(self.name)
 
-    def __str__(self):
-        return _str(self, '{%s}', self.items,
-                    lambda x: repr(x[0]) + ': ' + repr(x[1]))
+    def __repr__(self):
+        return _repr(self, '{%s}')

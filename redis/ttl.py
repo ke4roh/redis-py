@@ -3,7 +3,7 @@ import collections
 import redis
 import pickle
 import time
-from .collections import ObjectRedis, RedisSortedSet
+from .collections import ObjectRedis, RedisSortedSet, _repr
 __author__ = 'ke4roh'
 
 
@@ -138,7 +138,6 @@ class RedisTTLSet(collections.MutableSet):
 
     def __contains__(self, item):
         """
-        :param item:
         :return: True if the item is in the set and not expired, false
             otherwise
         """
@@ -163,12 +162,6 @@ class RedisTTLSet(collections.MutableSet):
         """Remove expired elements. O(log(N) + M)"""
         self.redis.zremrangebyscore(self.name, float("-inf"), self.time())
 
-    def copy(self):
-        """
-        :return: A copy of this set
-        """
-        return set(self.__iter__())
-
     def update(self, *other):
         t = self.time() + self.ttl
         self.dict.update((dict((k, t) for k in
@@ -185,3 +178,6 @@ class RedisTTLSet(collections.MutableSet):
 
     def clear(self):
         self.dict.clear()
+
+    def __repr__(self):
+        return _repr(self, box='{%s}')
