@@ -148,15 +148,15 @@ class TestObjectRedis(object):
 
     def test_repr(self, sr):
         d = ObjectRedis(sr)
+        # The name of this list is going to be pickled, so it will be a mess
+        # when it comes out.  If you don't want it pickled, you could change
+        # ObjectRedis's key_serializer.
         d['list'] = [1, 2, 3, 4, 5]
         d['foo'] = 'bar'
-        print(str(d))
-        assert "<ObjectRedis(namespace=None,{'list': " \
-               "<RedisList(name=\"S'list'\\np0\\n.\",[1, 2, 3, 4, 5])>, " \
-               "'foo': 'bar'})>" == str(d) or \
-               "<ObjectRedis(namespace=None,{'foo': 'bar', 'list': " \
-               "<RedisList(name=\"S'list'\\np0\\n.\",[1, 2, 3, 4, 5])>" \
-               "})>" == str(d)
+        assert str(d).startswith("<ObjectRedis(namespace=None,{")
+        assert "<RedisList(name=" in str(d)
+        assert ",[1, 2, 3, 4, 5])>" in str(d)
+        assert "'foo': 'bar'" in str(d)
 
 
 class TestRedisDict(object):
