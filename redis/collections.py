@@ -4,6 +4,8 @@ from redis import StrictRedis
 import pickle
 from collections import MutableMapping, MutableSequence, MutableSet
 from ._compat import iteritems, OrderedDict
+import string
+import random
 
 __author__ = 'ke4roh'
 
@@ -133,17 +135,17 @@ class ObjectRedis(MutableMapping):
                 match=((self.namespace is not None and
                         self.namespace + b'*') or None)):
             try:
-                # __dns can't be done in a list comprehension because the
+                # _dns can't be done in a list comprehension because the
                 # exceptions need to be handled in the case of a null namespace
                 # and traversing other items, or in case of different pickling
                 # schemes, different namespace termination levels ("foo:" and
                 # "foo:bar:", etc.).
                 yield self._dns(k)
-            except:  # Other namespaces won't match
+            except Exception:  # Other namespaces won't match
                 pass
 
     def __len__(self):
-        """Time is proportional to the number of keys in this namespace.
+        """Time is proportional to the number of keys in this namespace. O(N)
         :return number of items in this namespace
         """
         return sum(1 for _ in self.__iter__())
@@ -217,6 +219,66 @@ def _repr(obj, box=None, meta="name"):
            (obj.__class__.__name__, meta, obj.__dict__.get(meta), ', '.join(l))
 
 
+_TOKEN_CHARS = (string.ascii_letters + string.digits)
+
+
+def _token():
+    return ''.join(random.choice(_TOKEN_CHARS) for _ in range(32)). \
+        encode("utf8")
+
+
+def _dict_eq(a, b):
+    """
+    Compare dictionaries using their items iterators and loading as much
+    as half of each into a local temporary store.  For comparisons of ordered
+    dicts, memory usage is nil.  For comparisons of dicts whose iterators
+    differ in sequence maximally, memory consumption is O(N).  Execution time
+    is O(N).
+
+    :param a: one dict
+    :param b: another dict
+    :return: True if they're the same, false otherwise
+    """
+    # The memory consumption here is to make a linear improvement in execution
+    # time.  In the case of a dict backed by Redis, it is faster to iterate
+    # over N items than to retrieve each one, by a factor of 10 or more
+    # because of the reduced round-trips to the server.
+    size = len(a)
+    if size != len(b):
+        return False
+
+    # Iterate over both dicts.  Compare items.  If the same ones come up
+    # at the same time, great, they match.  If different ones come up,
+    # store them in the am and bm collections of misses.  Check for prior
+    # misses that may be matched by the new elements.
+    bi = iteritems(b)
+    am = {}
+    bm = {}
+    for ak, av in iteritems(a):
+        bk, bv = next(bi)
+        if ak == bk:
+            if av != bv:
+                return False
+        else:  # keys differ
+            if ak in bm:
+                if bm[ak] == av:
+                    del bm[ak]
+                else:
+                    return False
+            else:
+                am[ak] = av
+            if bk in am:
+                if am[bk] == bv:
+                    del am[bk]
+                else:
+                    return False
+            else:
+                bm[bk] = bv
+        if len(am) + len(bm) > size:
+            return False
+    return len(am) + len(bm) == 0
+
+
 class RedisList(MutableSequence):
     """A list backed by Redis, using the Redis linked list construct, and
     stored a single Redis value.
@@ -237,19 +299,40 @@ class RedisList(MutableSequence):
         self.serializer = serializer
 
     def __getitem__(self, index):
+        """
+        O(N)
+        :param index: The integer index of the thing to find, negative to start
+            at the end.
+        :return: The item at that index
+        """
         rval = self.redis.lindex(self.name, index)
         if rval is None:
             raise IndexError("empty list")
         return self.serializer.loads(rval)
 
     def __setitem__(self, index, value):
+        """
+        O(N)
+        :param index: The integer index of the thing to store, negative to
+            start at the end.
+        :param value: th thing to store
+        """
         self.redis.lset(self.name, index, self.serializer.dumps(value))
 
     def __delitem__(self, index):
-        self.redis.pipeline().lset(self.name, index, '-=-DELETING-=-'). \
-            lrem(self.name, 1, '-=-DELETING-=-').execute()
+        """
+        O(N)
+        :param index: The index of item to remove, negative is from the end
+        """
+        token = b'-=-DELETING-=-' + _token()
+        self.redis.pipeline().lset(self.name, index, token). \
+            lrem(self.name, 1, token).execute()
 
     def __len__(self):
+        """
+        O(1)
+        :return: The number of elements in the list
+        """
         return self.redis.llen(self.name)
 
     def __insert(self, pipe, index, value):
@@ -258,10 +341,11 @@ class RedisList(MutableSequence):
             pipe.rpush(self.name, value)
         else:
             current = pipe.lindex(self.name, index)
-            pipe.lset(self.name, index, '-=-INSERTING-=-')
-            pipe.linsert(self.name, 'BEFORE', '-=-INSERTING-=-', value)
-            pipe.linsert(self.name, 'AFTER', '-=-INSERTING-=-', current)
-            pipe.lrem(self.name, 1, '-=-INSERTING-=-')
+            token = b'-=-INSERTING-=-' + _token()
+            pipe.lset(self.name, index, token)
+            pipe.linsert(self.name, 'BEFORE', token, value)
+            pipe.linsert(self.name, 'AFTER', token, current)
+            pipe.lrem(self.name, 1, token)
 
     def insert(self, index, value):
         self.redis.transaction(lambda pipe: self.__insert(pipe, index, value),
@@ -287,8 +371,9 @@ class RedisList(MutableSequence):
             raise IndexError()
 
         rbox.append(bval)
-        pipe.lset(self.name, index, '-=-DELETING-=-')
-        pipe.lrem(self.name, 1, '-=-DELETING-=-')
+        token = _token()
+        pipe.lset(self.name, index, token)
+        pipe.lrem(self.name, 1, token)
 
     def pop(self, index=-1):
         if index == -1:
@@ -462,8 +547,14 @@ class RedisDict(MutableMapping):
     def iteritems(self):
         return self.items()
 
+    def __eq__(self, other):
+        """
+        :return contents equal to the other dict
+        """
+        return _dict_eq(self, other)
 
-class RedisSortedSet(MutableMapping, MutableSequence):
+
+class RedisSortedSet(MutableMapping):
     """
     A Redis sorted set wrapped as a dict.  Entries are stored in the dictionary
     keys, scores are their values. Items are sorted in order by their values.
@@ -517,6 +608,13 @@ class RedisSortedSet(MutableMapping, MutableSequence):
         key.__hash__()  # See that it's hashable, otherwise it's not a key
         self.redis.zadd(self.name, value + 0.0, self.serializer.dumps(key))
 
+    def __eq__(self, other):
+        """
+        Comparison to another RedisSortedSet is memory-efficient.  Comparison
+        to other dictionaries takes memory and time O(N).
+        """
+        return _dict_eq(self, other)
+
     def index(self, value):
         """Return the rank of the value (its ordinal position in the set).
         O(log N)"""
@@ -527,9 +625,6 @@ class RedisSortedSet(MutableMapping, MutableSequence):
             return rval
         else:
             raise ValueError()
-
-    def insert(self, index, value):
-        raise NotImplementedError("Sort order is maintained by key.")
 
     def __delitem__(self, value):
         if self.redis.zrem(self.name, self.serializer.dumps(value)) == 0:

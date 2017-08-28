@@ -141,7 +141,10 @@ class TestObjectRedis(object):
         od[89.7] = 'WCPE'
         od[91.5] = 'WUNC'
         d['od'] = od
-        assert od == OrderedDict(d['od'].items())
+        assert d['od'] == od
+        assert od == d['od']
+        assert dict(d['od']) == d['od']
+        assert d['od'] == dict(d['od'])
         s = set(['oats', 'peas', 'beans'])
         d['set'] = s
         assert s == set(d['set'])
@@ -231,6 +234,8 @@ class TestRedisSortedSet(object):
         assert 'lions' == next(i)
         assert 'tigers' == next(i)
         assert 'bears' == next(i)
+        with pytest.raises(StopIteration):
+            next(i)
 
     def test_update(self, sr):
         s = RedisSortedSet('foo', redis=sr)
